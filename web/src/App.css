@@ -178,8 +178,9 @@
   min-height: 420px;
   overflow: auto;
   position: relative;
-  display: grid;
-  place-items: start center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 12px;
   background: #f3eee6;
 }
@@ -223,4 +224,165 @@
     display: grid;
     grid-template-columns: repeat(3, minmax(90px, 1fr));
   }
+}
+
+/* Annotation Toolbar */
+.toolbelt {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #d8cfc2;
+  border-radius: 8px;
+  background: #faf7f2;
+}
+
+.tool-button {
+  padding: 6px 12px;
+  border: 1px solid #d8cfc2;
+  border-radius: 6px;
+  background: #fff;
+  color: #2a1f0f;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.tool-button:hover {
+  background: #f3eee6;
+  border-color: #8f7f60;
+}
+
+.tool-button.active {
+  background: #8f7f60;
+  color: #fff;
+  border-color: #6b5f52;
+}
+
+.tool-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.stroke-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.stroke-control input {
+  width: 100px;
+}
+
+/* Page Stage & Overlay Layers */
+.page-stage {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.page-canvas {
+  position: relative;
+  z-index: 1;
+  display: block;
+}
+
+.annotation-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  pointer-events: auto;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.annotation-overlay svg {
+  pointer-events: auto;
+  width: 100%;
+  height: 100%;
+}
+
+.annotation-selection-box {
+  fill: none;
+  stroke: #b86f1f;
+  stroke-width: 1;
+  stroke-dasharray: 4, 2;
+}
+
+.annotation-shape {
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.annotation-shape:hover {
+  opacity: 0.8;
+}
+
+.annotation-handle {
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.annotation-handle:hover {
+  opacity: 0.7;
+}
+
+.annotation-handle:active {
+  cursor: grabbing;
+}
+
+/* HTML Note Layer */
+.annotation-html-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.annotation-note {
+  position: absolute;
+  box-sizing: border-box;
+  background: #facc15;
+  border: 2px solid #d97706;
+  border-radius: 6px;
+  padding: 8px;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.annotation-note.selected {
+  border: 2px solid #b86f1f;
+  box-shadow: 0 0 0 3px rgba(184, 111, 31, 0.1);
+  z-index: 10;
+}
+
+.annotation-note textarea {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  resize: none;
+  font-size: 0.85rem;
+  font-family: inherit;
+  padding: 4px;
+  box-sizing: border-box;
+  color: #2a1f0f;
+}
+
+.annotation-note textarea:focus {
+  outline: none;
 }

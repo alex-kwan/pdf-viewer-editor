@@ -2,20 +2,21 @@ import { describe, expect, it } from 'vitest'
 import { annotationHistoryReducer, createAnnotationHistory } from './reducer'
 import type { Annotation } from './types'
 
-const rectangle: Annotation = {
+const note: Annotation = {
   id: 'annotation-1',
-  type: 'rectangle',
+  type: 'note',
   page: 1,
-  color: '#2563eb',
+  color: '#facc15',
   strokeWidth: 4,
   bounds: { x: 20, y: 40, width: 100, height: 60 },
+  text: 'New note',
 }
 
 describe('annotation history reducer', () => {
   it('creates, updates, and deletes annotations', () => {
     const created = annotationHistoryReducer(createAnnotationHistory(), {
       type: 'create',
-      annotation: rectangle,
+      annotation: note,
     })
 
     expect(created.present.pages[1]).toHaveLength(1)
@@ -23,8 +24,8 @@ describe('annotation history reducer', () => {
     const updated = annotationHistoryReducer(created, {
       type: 'update',
       annotation: {
-        ...rectangle,
-        bounds: { ...rectangle.bounds, x: 80 },
+        ...note,
+        bounds: { ...note.bounds, x: 80 },
       },
     })
 
@@ -34,7 +35,7 @@ describe('annotation history reducer', () => {
 
     const deleted = annotationHistoryReducer(updated, {
       type: 'delete',
-      annotationId: rectangle.id,
+      annotationId: note.id,
       page: 1,
     })
 
@@ -44,13 +45,13 @@ describe('annotation history reducer', () => {
   it('undoes and redoes core operations', () => {
     const created = annotationHistoryReducer(createAnnotationHistory(), {
       type: 'create',
-      annotation: rectangle,
+      annotation: note,
     })
 
     const undone = annotationHistoryReducer(created, { type: 'undo' })
     expect(undone.present.pages[1]).toBeUndefined()
 
     const redone = annotationHistoryReducer(undone, { type: 'redo' })
-    expect(redone.present.pages[1][0]).toEqual(rectangle)
+    expect(redone.present.pages[1][0]).toEqual(note)
   })
 })

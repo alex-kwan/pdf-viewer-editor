@@ -34,21 +34,19 @@ const dragOnOverlay = async (
   await page.mouse.up()
 }
 
-test('mixed annotations render together', async ({ page }) => {
+test('multiple text notes render together', async ({ page }) => {
   await openSamplePdf(page)
 
   const overlay = page.getByTestId('annotation-overlay')
 
-  await page.getByRole('button', { name: 'Highlight' }).click()
+  await page.getByRole('button', { name: 'Note' }).click()
   await dragOnOverlay(page, overlay, { x: 120, y: 150 }, { x: 360, y: 210 })
 
-  await page.getByRole('button', { name: 'Rectangle' }).click()
   await dragOnOverlay(page, overlay, { x: 140, y: 260 }, { x: 360, y: 430 })
 
-  await page.getByRole('button', { name: 'Line' }).click()
   await dragOnOverlay(page, overlay, { x: 110, y: 500 }, { x: 380, y: 620 })
 
-  await expect(page.locator('.viewer-area')).toHaveScreenshot('annotations-mixed.png', {
+  await expect(page.locator('.viewer-area')).toHaveScreenshot('annotations-notes.png', {
     animations: 'disabled',
     caret: 'hide',
     maxDiffPixelRatio: 0.01,
@@ -60,11 +58,10 @@ test('selection handles remain visible after resizing', async ({ page }) => {
 
   const overlay = page.getByTestId('annotation-overlay')
 
-  await page.getByRole('button', { name: 'Rectangle' }).click()
+  await page.getByRole('button', { name: 'Note' }).click()
   await dragOnOverlay(page, overlay, { x: 180, y: 220 }, { x: 360, y: 390 })
 
-  await page.getByRole('button', { name: 'Select' }).click()
-  await page.locator('[data-annotation-type="rectangle"]').first().click()
+  await page.locator('[data-annotation-type="note"]').first().click()
 
   const handle = page.locator('.annotation-handle').last()
   const handleBox = await handle.boundingBox()
@@ -85,7 +82,7 @@ test('selection handles remain visible after resizing', async ({ page }) => {
   })
 })
 
-test('note and pen overlays render stably', async ({ page }) => {
+test('text note overlays render stably', async ({ page }) => {
   await openSamplePdf(page)
 
   const overlay = page.getByTestId('annotation-overlay')
@@ -98,12 +95,9 @@ test('note and pen overlays render stably', async ({ page }) => {
   await noteInput.fill('Review this section')
   await noteInput.blur()
 
-  await page.getByRole('button', { name: 'Pen' }).click()
-  await dragOnOverlay(page, overlay, { x: 140, y: 560 }, { x: 240, y: 600 }, 5)
-  await dragOnOverlay(page, overlay, { x: 240, y: 600 }, { x: 320, y: 540 }, 5)
-  await dragOnOverlay(page, overlay, { x: 320, y: 540 }, { x: 410, y: 610 }, 5)
+  await dragOnOverlay(page, overlay, { x: 140, y: 560 }, { x: 320, y: 690 })
 
-  await expect(page.locator('.viewer-area')).toHaveScreenshot('annotations-note-pen.png', {
+  await expect(page.locator('.viewer-area')).toHaveScreenshot('annotations-note-only.png', {
     animations: 'disabled',
     caret: 'hide',
     maxDiffPixelRatio: 0.01,

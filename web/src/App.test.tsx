@@ -147,14 +147,14 @@ describe('Milestone 2 viewer', () => {
     expect(nextButton).toBeDisabled()
   })
 
-  it('creates a rectangle annotation from drag input', async () => {
+  it('creates a text note annotation from drag input', async () => {
     const user = userEvent.setup()
     const { container } = render(<App />)
 
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
     await user.upload(fileInput, new File(['%PDF-1.4'], 'sample.pdf', { type: 'application/pdf' }))
 
-    await user.click(screen.getByRole('button', { name: 'Rectangle' }))
+    await user.click(screen.getByRole('button', { name: 'Note' }))
 
     const overlay = await screen.findByTestId('annotation-overlay')
     fireEvent.pointerDown(overlay, { clientX: 100, clientY: 140 })
@@ -162,7 +162,7 @@ describe('Milestone 2 viewer', () => {
     fireEvent.pointerUp(window, { clientX: 260, clientY: 320 })
 
     const annotation = await screen.findByTestId(annotationId(1))
-    expect(annotation).toHaveAttribute('data-annotation-type', 'rectangle')
+    expect(annotation).toHaveAttribute('data-annotation-type', 'note')
     expect(annotation).toHaveAttribute('data-width', '160')
     expect(annotation).toHaveAttribute('data-height', '180')
   })
@@ -174,14 +174,13 @@ describe('Milestone 2 viewer', () => {
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
     await user.upload(fileInput, new File(['%PDF-1.4'], 'sample.pdf', { type: 'application/pdf' }))
 
-    await user.click(screen.getByRole('button', { name: 'Rectangle' }))
+    await user.click(screen.getByRole('button', { name: 'Note' }))
 
     const overlay = await screen.findByTestId('annotation-overlay')
     fireEvent.pointerDown(overlay, { clientX: 80, clientY: 120 })
     fireEvent.pointerMove(window, { clientX: 200, clientY: 220 })
     fireEvent.pointerUp(window, { clientX: 200, clientY: 220 })
 
-    await user.click(screen.getByRole('button', { name: 'Select' }))
     const annotation = await screen.findByTestId(annotationId(1))
 
     fireEvent.pointerDown(annotation, { clientX: 120, clientY: 140 })
@@ -201,14 +200,13 @@ describe('Milestone 2 viewer', () => {
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
     await user.upload(fileInput, new File(['%PDF-1.4'], 'sample.pdf', { type: 'application/pdf' }))
 
-    await user.click(screen.getByRole('button', { name: 'Rectangle' }))
+    await user.click(screen.getByRole('button', { name: 'Note' }))
 
     const overlay = await screen.findByTestId('annotation-overlay')
     fireEvent.pointerDown(overlay, { clientX: 70, clientY: 90 })
     fireEvent.pointerMove(window, { clientX: 170, clientY: 170 })
     fireEvent.pointerUp(window, { clientX: 170, clientY: 170 })
 
-    await user.click(screen.getByRole('button', { name: 'Select' }))
     const handle = await screen.findByTestId(`handle-${annotationId(1)}-se`)
 
     fireEvent.pointerDown(handle, { clientX: 170, clientY: 170 })
@@ -227,13 +225,12 @@ describe('Milestone 2 viewer', () => {
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
     await user.upload(fileInput, new File(['%PDF-1.4'], 'sample.pdf', { type: 'application/pdf' }))
 
-    await user.click(screen.getByRole('button', { name: 'Rectangle' }))
+    await user.click(screen.getByRole('button', { name: 'Note' }))
     const overlay = await screen.findByTestId('annotation-overlay')
     fireEvent.pointerDown(overlay, { clientX: 80, clientY: 120 })
     fireEvent.pointerMove(window, { clientX: 180, clientY: 220 })
     fireEvent.pointerUp(window, { clientX: 180, clientY: 220 })
 
-    await user.click(screen.getByRole('button', { name: 'Select' }))
     const annotation = await screen.findByTestId(annotationId(1))
     fireEvent.pointerDown(annotation, { clientX: 100, clientY: 140 })
     fireEvent.pointerUp(window, { clientX: 100, clientY: 140 })

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy } from 'pdfjs-dist'
 import './App.css'
 import {
-  distanceBetweenPoints,
   getAnnotationBounds,
   getHandlePoint,
   pagePointToViewportPoint,
@@ -21,7 +20,6 @@ import {
 } from './annotations/reducer'
 import {
   isRectAnnotation,
-  PEN_HANDLES,
   RECT_HANDLES,
   toolSupportsStrokeWidth,
   type Annotation,
@@ -66,36 +64,15 @@ type InteractionState =
       preview: Annotation
     }
 
-const TOOLBAR_TOOLS: Tool[] = [
-  'select',
-  'highlight',
-  'underline',
-  'pen',
-  'rectangle',
-  'ellipse',
-  'line',
-  'note',
-]
+const TOOLBAR_TOOLS: Tool[] = ['select', 'note']
 
 const TOOL_LABELS: Record<Tool, string> = {
   select: 'Select',
-  highlight: 'Highlight',
-  underline: 'Underline',
-  pen: 'Pen',
-  rectangle: 'Rectangle',
-  ellipse: 'Ellipse',
-  line: 'Line',
   note: 'Note',
 }
 
 const TOOL_COLORS: Record<Tool, string> = {
   select: '#b86f1f',
-  highlight: 'rgba(255, 230, 77, 0.45)',
-  underline: '#f59e0b',
-  pen: '#0f766e',
-  rectangle: '#2563eb',
-  ellipse: '#9333ea',
-  line: '#dc2626',
   note: '#facc15',
 }
 
@@ -124,6 +101,10 @@ const createAnnotationFromTool = (
   point: PagePoint,
   strokeWidth: number,
 ): Annotation => {
+  if (tool !== 'note') {
+    throw new Error('Only note annotations can be created')
+  }
+
   const base = {
     id: createId(),
     page,
@@ -131,38 +112,11 @@ const createAnnotationFromTool = (
     strokeWidth,
   }
 
-  switch (tool) {
-    case 'highlight':
-    case 'underline':
-    case 'rectangle':
-    case 'ellipse':
-      return {
-        ...base,
-        type: tool,
-        bounds: { x: point.x, y: point.y, width: 0, height: 0 },
-      }
-    case 'note':
-      return {
-        ...base,
-        type: 'note',
-        bounds: { x: point.x, y: point.y, width: 0, height: 0 },
-        text: 'New note',
-      }
-    case 'line':
-      return {
-        ...base,
-        type: 'line',
-        start: point,
-        end: point,
-      }
-    case 'pen':
-      return {
-        ...base,
-        type: 'pen',
-        points: [point],
-      }
-    case 'select':
-      throw new Error('Select does not create annotations')
+  return {
+    ...base,
+    type: 'note',
+    bounds: { x: point.x, y: point.y, width: 0, height: 0 },
+    text: 'New note',
   }
 }
 
@@ -172,21 +126,7 @@ const updateDraftAnnotation = (
   origin: PagePoint,
   point: PagePoint,
 ): Annotation => {
-  if (tool === 'pen' && annotation.type === 'pen') {
-    return {
-      ...annotation,
-      points: [...annotation.points, point],
-    }
-  }
-
-  if (tool === 'line' && annotation.type === 'line') {
-    return {
-      ...annotation,
-      end: point,
-    }
-  }
-
-  if (isRectAnnotation(annotation)) {
+  if (tool === 'note' && isRectAnnotation(annotation)) {
     return {
       ...annotation,
       bounds: rectFromPoints(origin, point),
@@ -197,16 +137,6 @@ const updateDraftAnnotation = (
 }
 
 const finalizeAnnotation = (annotation: Annotation): Annotation | null => {
-  if (annotation.type === 'pen') {
-    return annotation.points.length > 1 ? annotation : null
-  }
-
-  if (annotation.type === 'line') {
-    return distanceBetweenPoints(annotation.start, annotation.end) >= MIN_ANNOTATION_SIZE
-      ? annotation
-      : null
-  }
-
   if (annotation.type === 'note') {
     return {
       ...annotation,
@@ -221,9 +151,7 @@ const finalizeAnnotation = (annotation: Annotation): Annotation | null => {
     }
   }
 
-  return annotation.bounds.width >= MIN_ANNOTATION_SIZE || annotation.bounds.height >= MIN_ANNOTATION_SIZE
-    ? annotation
-    : null
+  return null
 }
 
 function App() {
@@ -253,12 +181,14 @@ function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const overlayRef = useRef<HTMLDivElement | null>(null)
+  const svgOverlayRef = useRef<SVGSVGElement | null>(null)
 
   const storageKey = getStorageKey(fileMeta)
   const canGoPrevious = currentPage > 1
   const canGoNext = currentPage < pageCount
 
   const currentPageAnnotations = annotationHistory.present.pages[currentPage] ?? []
+  console.log(`[currentPageAnnotations] page=${currentPage}, count=${currentPageAnnotations.length}`, currentPageAnnotations)
   const selectedAnnotation = currentPageAnnotations.find((entry) => entry.id === selectedAnnotationId)
 
   const documentMeta = useMemo(() => {
@@ -311,10 +241,8 @@ function App() {
     (annotation): annotation is RectAnnotation => annotation.type === 'note',
   )
 
-  const shapeAnnotations = renderableAnnotations.filter((annotation) => annotation.type !== 'note')
-
   const getPagePointFromClient = (clientX: number, clientY: number) => {
-    const element = overlayRef.current
+    const element = svgOverlayRef.current
     if (!element) {
       return null
     }
@@ -557,6 +485,7 @@ function App() {
           const finalized = finalizeAnnotation(current.preview)
 
           if (finalized) {
+            console.log(`[pointerup] Finalizing annotation, type=${finalized.type}, id=${finalized.id}`, finalized)
             dispatchAnnotations({ type: 'create', annotation: finalized })
             setSelectedAnnotationId(finalized.id)
 
@@ -564,6 +493,8 @@ function App() {
               setEditingNoteId(finalized.id)
               setActiveTool('select')
             }
+          } else {
+            console.log('[pointerup] Annotation finalization returned null (too small or invalid)')
           }
 
           return null
@@ -688,6 +619,7 @@ function App() {
   }
 
   const handleOverlayPointerDown = (event: React.PointerEvent<SVGSVGElement>) => {
+    console.log(`[handleOverlayPointerDown] activeTool=${activeTool}`)
     if (activeTool === 'select') {
       setSelectedAnnotationId(null)
       setEditingNoteId(null)
@@ -696,8 +628,11 @@ function App() {
 
     const point = getPagePointFromClient(event.clientX, event.clientY)
     if (!point) {
+      console.warn('[handleOverlayPointerDown] Failed to get page point from client coordinates')
       return
     }
+
+    console.log(`[handleOverlayPointerDown] Starting create interaction, tool=${activeTool}, point=`, point)
 
     event.preventDefault()
     setEditingNoteId(null)
@@ -769,7 +704,7 @@ function App() {
     const bounds = getAnnotationBounds(annotation)
     const selectionStroke = '#b86f1f'
     const viewportBounds = pageRectToViewportRect(bounds, scale)
-    const handles = annotation.type === 'line' ? (['start', 'end'] as ResizeHandle[]) : annotation.type === 'pen' ? PEN_HANDLES : RECT_HANDLES
+    const handles = RECT_HANDLES
 
     return (
       <>
@@ -781,12 +716,7 @@ function App() {
           height={Math.max(viewportBounds.height, 1)}
         />
         {handles.map((handle) => {
-          const point =
-            annotation.type === 'line' && handle === 'start'
-              ? annotation.start
-              : annotation.type === 'line' && handle === 'end'
-                ? annotation.end
-                : getHandlePoint(bounds, handle)
+          const point = getHandlePoint(bounds, handle)
           const viewportPoint = pagePointToViewportPoint(point, scale)
 
           return (
@@ -804,183 +734,6 @@ function App() {
           )
         })}
       </>
-    )
-  }
-
-  const renderShapeAnnotation = (annotation: Annotation) => {
-    const isSelected = activeTool === 'select' && annotation.id === selectedAnnotationId
-    const bounds = getAnnotationBounds(annotation)
-    const viewportBounds = pageRectToViewportRect(bounds, scale)
-
-    if (annotation.type === 'highlight') {
-      return (
-        <g
-          key={annotation.id}
-          data-testid={annotation.id}
-          data-annotation-type={annotation.type}
-          data-x={annotation.bounds.x}
-          data-y={annotation.bounds.y}
-          data-width={annotation.bounds.width}
-          data-height={annotation.bounds.height}
-          onPointerDown={(event) => startMoveAnnotation(annotation, event)}
-        >
-          <rect
-            className="annotation-shape"
-            x={viewportBounds.x}
-            y={viewportBounds.y}
-            width={Math.max(viewportBounds.width, 1)}
-            height={Math.max(viewportBounds.height, 1)}
-            fill={annotation.color}
-          />
-          {isSelected ? renderSelectionHandles(annotation) : null}
-        </g>
-      )
-    }
-
-    if (annotation.type === 'underline') {
-      return (
-        <g
-          key={annotation.id}
-          data-testid={annotation.id}
-          data-annotation-type={annotation.type}
-          data-x={annotation.bounds.x}
-          data-y={annotation.bounds.y}
-          data-width={annotation.bounds.width}
-          data-height={annotation.bounds.height}
-          onPointerDown={(event) => startMoveAnnotation(annotation, event)}
-        >
-          <line
-            className="annotation-shape"
-            x1={viewportBounds.x}
-            y1={viewportBounds.y + viewportBounds.height}
-            x2={viewportBounds.x + viewportBounds.width}
-            y2={viewportBounds.y + viewportBounds.height}
-            stroke={annotation.color}
-            strokeWidth={Math.max(annotation.strokeWidth, 2)}
-            strokeLinecap="round"
-          />
-          {isSelected ? renderSelectionHandles(annotation) : null}
-        </g>
-      )
-    }
-
-    if (annotation.type === 'rectangle') {
-      return (
-        <g
-          key={annotation.id}
-          data-testid={annotation.id}
-          data-annotation-type={annotation.type}
-          data-x={annotation.bounds.x}
-          data-y={annotation.bounds.y}
-          data-width={annotation.bounds.width}
-          data-height={annotation.bounds.height}
-          onPointerDown={(event) => startMoveAnnotation(annotation, event)}
-        >
-          <rect
-            className="annotation-shape"
-            x={viewportBounds.x}
-            y={viewportBounds.y}
-            width={Math.max(viewportBounds.width, 1)}
-            height={Math.max(viewportBounds.height, 1)}
-            fill="transparent"
-            stroke={annotation.color}
-            strokeWidth={annotation.strokeWidth}
-            rx={6}
-          />
-          {isSelected ? renderSelectionHandles(annotation) : null}
-        </g>
-      )
-    }
-
-    if (annotation.type === 'ellipse') {
-      return (
-        <g
-          key={annotation.id}
-          data-testid={annotation.id}
-          data-annotation-type={annotation.type}
-          data-x={annotation.bounds.x}
-          data-y={annotation.bounds.y}
-          data-width={annotation.bounds.width}
-          data-height={annotation.bounds.height}
-          onPointerDown={(event) => startMoveAnnotation(annotation, event)}
-        >
-          <ellipse
-            className="annotation-shape"
-            cx={viewportBounds.x + viewportBounds.width / 2}
-            cy={viewportBounds.y + viewportBounds.height / 2}
-            rx={Math.max(viewportBounds.width / 2, 1)}
-            ry={Math.max(viewportBounds.height / 2, 1)}
-            fill="transparent"
-            stroke={annotation.color}
-            strokeWidth={annotation.strokeWidth}
-          />
-          {isSelected ? renderSelectionHandles(annotation) : null}
-        </g>
-      )
-    }
-
-    if (annotation.type === 'line') {
-      const start = pagePointToViewportPoint(annotation.start, scale)
-      const end = pagePointToViewportPoint(annotation.end, scale)
-
-      return (
-        <g
-          key={annotation.id}
-          data-testid={annotation.id}
-          data-annotation-type={annotation.type}
-          data-x={annotation.start.x}
-          data-y={annotation.start.y}
-          data-width={annotation.end.x - annotation.start.x}
-          data-height={annotation.end.y - annotation.start.y}
-          onPointerDown={(event) => startMoveAnnotation(annotation, event)}
-        >
-          <line
-            className="annotation-shape"
-            x1={start.x}
-            y1={start.y}
-            x2={end.x}
-            y2={end.y}
-            stroke={annotation.color}
-            strokeWidth={annotation.strokeWidth}
-            strokeLinecap="round"
-          />
-          {isSelected ? renderSelectionHandles(annotation) : null}
-        </g>
-      )
-    }
-
-    if (annotation.type === 'note') {
-      return null
-    }
-
-    if (annotation.type !== 'pen') {
-      return null
-    }
-
-    const points = annotation.points.map((point: PagePoint) => pagePointToViewportPoint(point, scale))
-
-    return (
-      <g
-        key={annotation.id}
-        data-testid={annotation.id}
-        data-annotation-type={annotation.type}
-        data-x={bounds.x}
-        data-y={bounds.y}
-        data-width={bounds.width}
-        data-height={bounds.height}
-        onPointerDown={(event) => startMoveAnnotation(annotation, event)}
-      >
-        <polyline
-          className="annotation-shape"
-          points={points.map((point: PagePoint) => `${point.x},${point.y}`).join(' ')}
-          fill="none"
-          stroke={annotation.color}
-          strokeWidth={annotation.strokeWidth}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        {isSelected ? renderSelectionHandles(annotation) : null}
-      </g>
     )
   }
 
@@ -1133,14 +886,19 @@ function App() {
               >
                 <canvas ref={canvasRef} aria-label="PDF page canvas" className="page-canvas" />
                 <svg
+                  ref={svgOverlayRef}
                   className="annotation-overlay"
                   data-testid="annotation-overlay"
                   width={pageMetrics.viewport.width}
                   height={pageMetrics.viewport.height}
+                  style={{
+                    display: 'block',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                  }}
                   onPointerDown={handleOverlayPointerDown}
-                >
-                  {shapeAnnotations.map(renderShapeAnnotation)}
-                </svg>
+                />
                 <div className="annotation-html-layer">
                   {noteAnnotations.map((annotation) => {
                       const viewportBounds = pageRectToViewportRect(annotation.bounds, scale)

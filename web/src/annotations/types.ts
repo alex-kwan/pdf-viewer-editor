@@ -1,11 +1,5 @@
 export type Tool =
   | 'select'
-  | 'highlight'
-  | 'underline'
-  | 'pen'
-  | 'rectangle'
-  | 'ellipse'
-  | 'line'
   | 'note'
 
 export type PagePoint = {
@@ -92,4 +86,4 @@ export const isRectAnnotation = (annotation: Annotation): annotation is RectAnno
   RECT_ANNOTATION_TYPES.includes(annotation.type as RectAnnotationType)
 
 export const toolSupportsStrokeWidth = (tool: Tool) =>
-  ['highlight', 'underline', 'pen', 'rectangle', 'ellipse', 'line'].includes(tool)
+  false

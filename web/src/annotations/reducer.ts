@@ -21,6 +21,14 @@ export const createAnnotationHistory = (
 const clonePages = (pages: AnnotationPages): AnnotationPages =>
   Object.fromEntries(Object.entries(pages).map(([page, annotations]) => [Number(page), [...annotations]]))
 
+const sanitizePages = (pages: AnnotationPages): AnnotationPages =>
+  Object.fromEntries(
+    Object.entries(pages).map(([page, annotations]) => [
+      Number(page),
+      annotations.filter((annotation) => annotation.type === 'note'),
+    ]),
+  )
+
 const withNewPresent = (history: AnnotationHistory, next: AnnotationSnapshot): AnnotationHistory => ({
   past: [...history.past, history.present],
   present: next,
@@ -36,14 +44,23 @@ export const annotationHistoryReducer = (
 ): AnnotationHistory => {
   switch (action.type) {
     case 'replaceSnapshot':
-      return createAnnotationHistory({ pages: clonePages(action.snapshot.pages) })
+      return createAnnotationHistory({ pages: sanitizePages(clonePages(action.snapshot.pages)) })
     case 'create': {
+      if (action.annotation.type !== 'note') {
+        return history
+      }
+
+      console.log(`[reducer] Creating annotation: type=${action.annotation.type}, id=${action.annotation.id}, page=${action.annotation.page}`)
       const pages = clonePages(history.present.pages)
       pages[action.annotation.page] = [...(pages[action.annotation.page] ?? []), action.annotation]
 
       return withNewPresent(history, { pages })
     }
     case 'update': {
+      if (action.annotation.type !== 'note') {
+        return history
+      }
+
       const pages = clonePages(history.present.pages)
       pages[action.annotation.page] = (pages[action.annotation.page] ?? []).map((entry) =>
         entry.id === action.annotation.id ? action.annotation : entry,
