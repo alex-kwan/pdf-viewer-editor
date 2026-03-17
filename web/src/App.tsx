@@ -73,8 +73,6 @@ function App() {
           .render({
             canvasContext: context,
             viewport,
-            // Normalize upside-down/mirrored previews in some environments.
-            transform: [1, 0, 0, -1, 0, viewport.height],
           })
           .promise
       } finally {
@@ -121,8 +119,6 @@ function App() {
           .render({
             canvasContext: ctx,
             viewport: thumbViewport,
-            // Keep thumbnail orientation aligned with the main preview.
-            transform: [1, 0, 0, -1, 0, thumbViewport.height],
           })
           .promise
 
