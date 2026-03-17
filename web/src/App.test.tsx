@@ -34,13 +34,25 @@ vi.mock('pdfjs-dist', () => ({
   getDocument: pdfMock.mockGetDocument,
 }))
 
-describe('Milestone 1 viewer', () => {
+const annotationId = (
+  sequence: number,
+): `${string}-${string}-${string}-${string}-${string}` =>
+  `00000000-0000-0000-0000-${String(sequence).padStart(12, '0')}`
+
+describe('Milestone 2 viewer', () => {
   afterEach(() => {
     cleanup()
+    vi.restoreAllMocks()
   })
 
   beforeEach(() => {
     vi.clearAllMocks()
+    window.localStorage.clear()
+
+    vi.spyOn(globalThis.crypto, 'randomUUID').mockImplementation((() => {
+      let nextId = 0
+      return () => annotationId(++nextId)
+    })())
 
     Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
       value: vi.fn(() => ({
@@ -63,6 +75,21 @@ describe('Milestone 1 viewer', () => {
 
     Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
       value: 1200,
+      configurable: true,
+    })
+
+    Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+      value: vi.fn(() => ({
+        width: 800,
+        height: 1000,
+        left: 0,
+        top: 0,
+        right: 800,
+        bottom: 1000,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      })),
       configurable: true,
     })
   })
@@ -120,66 +147,101 @@ describe('Milestone 1 viewer', () => {
     expect(nextButton).toBeDisabled()
   })
 
-  it('updates zoom percentage when zoom controls are used', async () => {
+  it('creates a rectangle annotation from drag input', async () => {
     const user = userEvent.setup()
     const { container } = render(<App />)
 
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
     await user.upload(fileInput, new File(['%PDF-1.4'], 'sample.pdf', { type: 'application/pdf' }))
 
-    const zoomTag = await screen.findByText(/%/)
-    const before = zoomTag.textContent
+    await user.click(screen.getByRole('button', { name: 'Rectangle' }))
 
-    await user.click(screen.getByRole('button', { name: '+' }))
+    const overlay = await screen.findByTestId('annotation-overlay')
+    fireEvent.pointerDown(overlay, { clientX: 100, clientY: 140 })
+    fireEvent.pointerMove(window, { clientX: 260, clientY: 320 })
+    fireEvent.pointerUp(window, { clientX: 260, clientY: 320 })
+
+    const annotation = await screen.findByTestId(annotationId(1))
+    expect(annotation).toHaveAttribute('data-annotation-type', 'rectangle')
+    expect(annotation).toHaveAttribute('data-width', '160')
+    expect(annotation).toHaveAttribute('data-height', '180')
+  })
+
+  it('moves a selected annotation', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<App />)
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
+    await user.upload(fileInput, new File(['%PDF-1.4'], 'sample.pdf', { type: 'application/pdf' }))
+
+    await user.click(screen.getByRole('button', { name: 'Rectangle' }))
+
+    const overlay = await screen.findByTestId('annotation-overlay')
+    fireEvent.pointerDown(overlay, { clientX: 80, clientY: 120 })
+    fireEvent.pointerMove(window, { clientX: 200, clientY: 220 })
+    fireEvent.pointerUp(window, { clientX: 200, clientY: 220 })
+
+    await user.click(screen.getByRole('button', { name: 'Select' }))
+    const annotation = await screen.findByTestId(annotationId(1))
+
+    fireEvent.pointerDown(annotation, { clientX: 120, clientY: 140 })
+    fireEvent.pointerMove(window, { clientX: 180, clientY: 190 })
+    fireEvent.pointerUp(window, { clientX: 180, clientY: 190 })
 
     await waitFor(() => {
-      expect(zoomTag.textContent).not.toBe(before)
-    })
-
-    const afterZoomIn = zoomTag.textContent
-    await user.click(screen.getByRole('button', { name: '-' }))
-
-    await waitFor(() => {
-      expect(zoomTag.textContent).not.toBe(afterZoomIn)
+      expect(annotation).toHaveAttribute('data-x', '140')
+      expect(annotation).toHaveAttribute('data-y', '170')
     })
   })
 
-  it('applies fit-width and fit-page scale presets', async () => {
+  it('resizes a selected annotation with handles', async () => {
     const user = userEvent.setup()
     const { container } = render(<App />)
 
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
     await user.upload(fileInput, new File(['%PDF-1.4'], 'sample.pdf', { type: 'application/pdf' }))
 
-    const zoomTag = await screen.findByText(/%/)
+    await user.click(screen.getByRole('button', { name: 'Rectangle' }))
 
-    await waitFor(() => {
-      expect(zoomTag).toHaveTextContent('122%')
-    })
+    const overlay = await screen.findByTestId('annotation-overlay')
+    fireEvent.pointerDown(overlay, { clientX: 70, clientY: 90 })
+    fireEvent.pointerMove(window, { clientX: 170, clientY: 170 })
+    fireEvent.pointerUp(window, { clientX: 170, clientY: 170 })
 
-    await user.click(screen.getByRole('button', { name: 'Fit Page' }))
-    await waitFor(() => {
-      expect(zoomTag).toHaveTextContent('118%')
-    })
+    await user.click(screen.getByRole('button', { name: 'Select' }))
+    const handle = await screen.findByTestId(`handle-${annotationId(1)}-se`)
 
-    await user.click(screen.getByRole('button', { name: 'Fit Width' }))
-    await waitFor(() => {
-      expect(zoomTag).toHaveTextContent('122%')
-    })
+    fireEvent.pointerDown(handle, { clientX: 170, clientY: 170 })
+    fireEvent.pointerMove(window, { clientX: 230, clientY: 250 })
+    fireEvent.pointerUp(window, { clientX: 230, clientY: 250 })
+
+    const annotation = await screen.findByTestId(annotationId(1))
+    expect(annotation).toHaveAttribute('data-width', '160')
+    expect(annotation).toHaveAttribute('data-height', '160')
   })
 
-  it('navigates to selected page when a thumbnail is clicked', async () => {
+  it('deletes the selected annotation with the keyboard', async () => {
     const user = userEvent.setup()
     const { container } = render(<App />)
 
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
     await user.upload(fileInput, new File(['%PDF-1.4'], 'sample.pdf', { type: 'application/pdf' }))
 
-    const pageInput = await screen.findByRole('spinbutton')
-    const pageTwoThumb = await screen.findByRole('button', { name: /Page 2/i })
+    await user.click(screen.getByRole('button', { name: 'Rectangle' }))
+    const overlay = await screen.findByTestId('annotation-overlay')
+    fireEvent.pointerDown(overlay, { clientX: 80, clientY: 120 })
+    fireEvent.pointerMove(window, { clientX: 180, clientY: 220 })
+    fireEvent.pointerUp(window, { clientX: 180, clientY: 220 })
 
-    await user.click(pageTwoThumb)
+    await user.click(screen.getByRole('button', { name: 'Select' }))
+    const annotation = await screen.findByTestId(annotationId(1))
+    fireEvent.pointerDown(annotation, { clientX: 100, clientY: 140 })
+    fireEvent.pointerUp(window, { clientX: 100, clientY: 140 })
 
-    expect(pageInput).toHaveValue(2)
+    fireEvent.keyDown(window, { key: 'Delete' })
+
+    await waitFor(() => {
+      expect(screen.queryByTestId(annotationId(1))).not.toBeInTheDocument()
+    })
   })
 })
